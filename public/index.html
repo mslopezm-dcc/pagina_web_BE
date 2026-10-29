@@ -1,0 +1,51 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Tanary — Boutique y Eventos</title>
+<meta name="description" content="Alquiler y venta de vestidos para hombre y mujer, y organización de eventos.">
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="icon" href="img/favicon.svg" type="image/svg+xml">
+<link rel="stylesheet" href="css/base.css"><link rel="stylesheet" href="css/componentes.css">
+<style>
+.split{position:relative;display:flex;height:calc(100vh - 64px);min-height:460px;overflow:hidden}
+.side-p{flex:1;display:flex;flex-direction:column;justify-content:center;padding:6vw;color:#f3dc8a;text-decoration:none;position:relative;overflow:hidden;
+  transition:flex .6s cubic-bezier(.2,.7,.2,1),filter .6s}
+.side-p.b{background:var(--metal-black);align-items:flex-start;padding-right:calc(6vw + 90px)}
+.side-p.e{background:var(--metal-gold);color:#17171a;align-items:flex-end;text-align:right;padding-left:calc(6vw + 90px)}
+.side-p .em{position:absolute;font-size:12rem;opacity:.12;bottom:-30px;transition:transform .6s,opacity .6s}
+.side-p.b .em{left:20px}.side-p.e .em{right:20px}
+.side-p h2{font-size:clamp(2.2rem,5vw,4rem);margin:0 0 .3em;transition:transform .6s}
+.side-p p{margin:0 0 1.2em;max-width:34ch;opacity:.9}
+.side-p .btn{background:transparent;border-color:currentColor;color:#f3dc8a;text-shadow:none}.side-p.e .btn{color:#17171a}
+.side-p:hover .btn,.side-p:focus-visible .btn{background:#fff;color:#17171a}
+.split:hover .side-p:not(:hover){filter:brightness(.6) saturate(.7)}
+.side-p:hover,.side-p:focus-visible{flex:1.35}
+.side-p:hover .em,.side-p:focus-visible .em{opacity:.3;transform:scale(1.1)}
+.side-p:hover h2,.side-p:focus-visible h2{transform:translateY(-4px)}
+.side-p:focus-visible{outline:4px solid #fff;outline-offset:-8px}
+.seam{position:absolute;left:50%;top:50%;transform:translate(-50%,-50%);width:180px;z-index:5;pointer-events:none;filter:drop-shadow(0 6px 18px rgba(0,0,0,.4))}
+@media(max-width:760px){
+  .split{flex-direction:column}
+  .side-p.b,.side-p.e{padding:24px;align-items:flex-start;text-align:left}
+  .side-p:hover,.side-p:focus-visible{flex:1.2}
+  .seam{width:110px}
+  .side-p .em{font-size:7rem}
+}
+@media(prefers-reduced-motion:reduce){.side-p,.side-p *{transition:none!important}}
+</style></head>
+<body>
+<header class="site-h" id="hdr"></header>
+<main style="padding:0">
+  <div class="split">
+    <a class="side-p b" href="boutique.html">
+      <span class="em" aria-hidden="true">👗</span>
+      <h2>Boutique</h2><p>Vestidos y trajes para mujer y hombre. Alquiler y venta.</p><span class="btn">Ver catálogo</span>
+    </a>
+    <a class="side-p e" href="eventos.html">
+      <span class="em" aria-hidden="true">🎉</span>
+      <h2>Eventos</h2><p>Bodas, quinceañeros y celebraciones corporativas, de principio a fin.</p><span class="btn">Cotizar evento</span>
+    </a>
+    <img class="seam" src="img/logo.svg" alt="Tanary — eventos y boutique">
+  </div>
+</main>
+<script src="js/api.js"></script><script src="js/auth.js"></script><script src="js/metrics.js"></script><script src="js/ui.js"></script>
+<script>Ready.then(()=>UI.mount('inicio'))</script>
+</body></html>

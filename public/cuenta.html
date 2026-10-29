@@ -1,0 +1,35 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Mi cuenta — Tanary</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="icon" href="img/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="css/base.css"><link rel="stylesheet" href="css/componentes.css"></head>
+<body>
+<header class="site-h" id="hdr"></header>
+<main class="wrap">
+  <h1>Mi cuenta</h1><p id="who" style="color:var(--muted)"></p>
+  <h2>Mis solicitudes</h2>
+  <div class="tw"><table><thead><tr><th>Fecha</th><th>Tipo</th><th>Detalle</th><th>Total</th><th>Estado</th><th></th></tr></thead><tbody id="tb"></tbody></table></div>
+</main>
+<footer class="site-f" id="ftr"></footer>
+<script src="js/api.js"></script><script src="js/auth.js"></script><script src="js/metrics.js"></script><script src="js/ui.js"></script>
+<script>
+Ready.then(async()=>{
+  const u=Auth.require();if(!u)return;
+  UI.mount('cuenta');
+  who.textContent=u.nombre+' · '+u.email;
+  const draw=async()=>{
+    let rs=[];
+    try{rs=await API.get('/requests')}catch(e){tb.innerHTML='<tr><td colspan="6">'+UI.esc(e.message)+'</td></tr>';return}
+    rs=rs.filter(r=>r.userId===u.id);
+    tb.innerHTML=rs.map(r=>{
+      const d=r.tipo==='evento'?`${UI.esc(r.datos.tipoEvento)} · ${UI.esc(r.datos.fecha)} · ${r.datos.invitados} inv.`:`${UI.esc(r.productoNombre||'(eliminado)')} · talla ${UI.esc(r.talla)}${r.desde?` · ${UI.esc(r.desde)} → ${UI.esc(r.hasta)}`:''}`;
+      return `<tr><td>${UI.fecha(r.creado)}</td><td>${UI.esc(r.tipo)}</td><td>${d}</td><td>${r.total?UI.cop(r.total):'—'}</td><td><span class="st ${r.estado}">${r.estado}</span></td>
+        <td>${r.estado==='nueva'?`<button class="btn sm alt" data-id="${r.id}">Cancelar</button>`:''}</td></tr>`}).join('')||'<tr><td colspan="6">Aún no tienes solicitudes.</td></tr>';
+  };
+  tb.onclick=async e=>{
+    const id=e.target.dataset.id;if(!id)return;
+    try{await API.patch('/requests/'+id,{estado:'cancelada'});await draw()}catch(err){UI.toast(err.message)}
+  };
+  draw();
+});
+</script>
+</body></html>

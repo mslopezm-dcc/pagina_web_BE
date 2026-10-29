@@ -1,0 +1,40 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Ingresar — Tanary</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="icon" href="img/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="css/base.css"><link rel="stylesheet" href="css/componentes.css"></head>
+<body>
+<header class="site-h" id="hdr"></header>
+<main class="wrap" style="max-width:480px">
+  <div class="panel">
+    <div class="tabs"><button class="btn" id="tl" type="button">Ingresar</button><button class="btn alt" id="tr" type="button">Crear cuenta</button></div>
+    <form id="f" class="form" style="max-width:none" novalidate>
+      <div id="nm" hidden><label for="n">Nombre</label><input id="n" autocomplete="name"></div>
+      <div><label for="e">Correo</label><input id="e" type="email" autocomplete="email" required></div>
+      <div><label for="p">Contraseña</label><input id="p" type="password" autocomplete="current-password" required></div>
+      <div class="msg" id="m" role="alert"></div>
+      <button class="btn" id="go">Ingresar</button>
+    </form>
+  </div>
+</main>
+<footer class="site-f" id="ftr"></footer>
+<script src="js/api.js"></script><script src="js/auth.js"></script><script src="js/metrics.js"></script><script src="js/ui.js"></script>
+<script>
+Ready.then(()=>{
+  UI.mount('login');
+  if(Auth.current()) location.href='index.html';
+  let reg=false;
+  const set=r=>{reg=r;nm.hidden=!r;go.textContent=r?'Crear cuenta':'Ingresar';tl.className='btn'+(r?' alt':'');tr.className='btn'+(r?'':' alt');p.autocomplete=r?'new-password':'current-password'};
+  tl.onclick=()=>set(false);tr.onclick=()=>set(true);
+  f.onsubmit=async ev=>{
+    ev.preventDefault();m.className='msg';
+    try{
+      const u=reg?await Auth.register(n.value,e.value,p.value):await Auth.login(e.value,p.value);
+      let next=new URLSearchParams(location.search).get('next')||'';
+      // Solo rutas relativas del mismo sitio.
+      if(!/^[\w\-\/]+\.html(\?[\w=&\-%.]*)?$/.test(next)) next=u.rol==='admin'?'admin/index.html':'index.html';
+      location.href=next;
+    }catch(x){m.textContent=x.message;m.className='msg on'}
+  };
+});
+</script>
+</body></html>

@@ -1,0 +1,45 @@
+<!doctype html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Eventos — Tanary</title>
+<link rel="preconnect" href="https://fonts.googleapis.com"><link rel="preconnect" href="https://fonts.gstatic.com" crossorigin><link href="https://fonts.googleapis.com/css2?family=Raleway:wght@400;500;600;700&display=swap" rel="stylesheet"><link rel="icon" href="img/favicon.svg" type="image/svg+xml"><link rel="stylesheet" href="css/base.css"><link rel="stylesheet" href="css/componentes.css"></head>
+<body>
+<header class="site-h" id="hdr"></header>
+<main class="wrap">
+  <h1>Organización de eventos</h1>
+  <p style="color:var(--muted);max-width:60ch">Nos encargamos de todo: lugar, decoración, catering, música y coordinación el día del evento.</p>
+  <h2>Paquetes</h2>
+  <div class="pk">
+    <div class="card"><h3>Esencial</h3><p class="price">Desde $2.500.000</p><ul><li>Coordinación del día</li><li>Decoración básica</li><li>Hasta 50 invitados</li></ul></div>
+    <div class="card"><h3>Elegante</h3><p class="price">Desde $6.000.000</p><ul><li>Planeación completa</li><li>Decoración + catering</li><li>Hasta 150 invitados</li></ul></div>
+    <div class="card"><h3>Premium</h3><p class="price">A convenir</p><ul><li>Todo incluido</li><li>Música, fotografía y video</li><li>Vestuario desde la boutique</li></ul></div>
+  </div>
+  <h2 style="margin-top:40px">Solicita tu cotización</h2>
+  <form id="ef" class="form panel" novalidate>
+    <div><label for="te">Tipo de evento</label><select id="te"><option>Boda</option><option>Quinceañero</option><option>Corporativo</option><option>Cumpleaños</option><option>Otro</option></select></div>
+    <div><label for="pq">Paquete de interés</label><select id="pq"><option>Esencial</option><option>Elegante</option><option>Premium</option><option>Aún no lo sé</option></select></div>
+    <div><label for="fe">Fecha estimada</label><input type="date" id="fe" required></div>
+    <div><label for="iv">Invitados</label><input type="number" id="iv" min="1" max="2000" required></div>
+    <div><label for="pr">Presupuesto aproximado (COP)</label><input type="number" id="pr" min="0" step="100000"></div>
+    <div><label for="nt">Notas</label><textarea id="nt" rows="3" maxlength="600"></textarea></div>
+    <div class="msg" id="m" role="alert"></div>
+    <button class="btn">Solicitar cotización</button>
+  </form>
+</main>
+<footer class="site-f" id="ftr"></footer>
+<script src="js/api.js"></script><script src="js/auth.js"></script><script src="js/metrics.js"></script><script src="js/ui.js"></script>
+<script>
+Ready.then(()=>{
+  UI.mount('eventos');
+  fe.min=new Date().toISOString().slice(0,10);
+  ef.onsubmit=async e=>{
+    e.preventDefault();m.className='msg';
+    if(!fe.value||!iv.value){m.textContent='Indica la fecha y el número de invitados.';m.className='msg on';return}
+    if(!Auth.require())return;
+    try{
+      await API.post('/requests',{tipo:'evento',datos:{tipoEvento:te.value,paquete:pq.value,fecha:fe.value,invitados:+iv.value,presupuesto:+pr.value||0,notas:nt.value.trim()}});
+      ef.reset();m.textContent='¡Solicitud enviada! Te contactaremos pronto.';m.className='msg on ok';
+    }catch(err){m.textContent=err.message;m.className='msg on'}
+  };
+});
+</script>
+</body></html>
