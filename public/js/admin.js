@@ -64,15 +64,47 @@ const Admin = {
         <div class="two" style="gap:12px"><div><label for="fk">Color</label><input id="fk"></div><div><label for="fm">Modalidad</label><select id="fm"><option value="ambos">Alquiler y venta</option><option value="alquiler">Solo alquiler</option><option value="venta">Solo venta</option></select></div></div>
         <div class="two" style="gap:12px"><div><label for="fv">Precio venta</label><input id="fv" type="number" min="0"></div><div><label for="fa">Alquiler por día</label><input id="fa" type="number" min="0"></div></div>
         <div class="two" style="gap:12px"><div><label for="ft">Tallas (separadas por coma)</label><input id="ft" value="S,M,L"></div><div><label for="fs">Stock</label><input id="fs" type="number" min="0" value="1"></div></div>
-        <div><label for="fi">Imagen (opcional, máx. 300 KB)</label><input id="fi" type="file" accept="image/*"></div>
+        <div><label for="fi">Fotos (hasta 6; la primera es la principal)</label><input id="fi" type="file" accept="image/*" multiple><div id="fotos" class="fotos"></div></div>
         <label><input type="checkbox" id="fx" checked style="width:auto"> Activo (visible en la tienda)</label>
         <div class="msg" id="m" role="alert"></div>
         <div class="row"><button class="btn" id="sv">Guardar</button><button class="btn alt" type="button" id="cx">Cancelar</button></div></form></dialog>`;
-      let edit = null;
+      let edit = null, imgs = [];
+      const MAX = 6;
+      const drawFotos = () => {
+        fotos.innerHTML = imgs.map((s, i) => `<figure class="${i ? '' : 'main'}"><img src="${UI.esc(s)}" alt="Foto ${i + 1}">
+          <button type="button" class="btn sm danger" data-fx="${i}" aria-label="Quitar foto ${i + 1}">×</button>${i ? `<button type="button" class="btn sm alt" data-fp="${i}" aria-label="Hacer principal la foto ${i + 1}">★</button>` : ''}</figure>`).join('') || '<small>Sin fotos: se usará una imagen de relleno.</small>';
+      };
+      // Reduce cada foto (máx. 1000 px, JPEG) para que pese poco en la base de datos.
+      const reducir = file => new Promise((ok, fail) => {
+        const url = URL.createObjectURL(file), im = new Image();
+        im.onload = () => {
+          const k = Math.min(1, 1000 / Math.max(im.width, im.height)), c = document.createElement('canvas');
+          c.width = Math.round(im.width * k); c.height = Math.round(im.height * k);
+          const x = c.getContext('2d'); x.fillStyle = '#fff'; x.fillRect(0, 0, c.width, c.height); x.drawImage(im, 0, 0, c.width, c.height);
+          URL.revokeObjectURL(url); ok(c.toDataURL('image/jpeg', 0.85));
+        };
+        im.onerror = () => { URL.revokeObjectURL(url); fail(new Error('No se pudo leer ' + file.name)); };
+        im.src = url;
+      });
+      fi.onchange = async () => {
+        m.className = 'msg';
+        for (const f of [...fi.files]) {
+          if (imgs.length >= MAX) { m.textContent = `Máximo ${MAX} fotos.`; m.className = 'msg on'; break; }
+          try { imgs.push(await reducir(f)); } catch (err) { m.textContent = err.message; m.className = 'msg on'; }
+        }
+        fi.value = ''; drawFotos();
+      };
+      fotos.onclick = e => {
+        const b = e.target.closest('button'); if (!b) return;
+        if (b.dataset.fx !== undefined) imgs.splice(+b.dataset.fx, 1);
+        if (b.dataset.fp !== undefined) imgs.unshift(...imgs.splice(+b.dataset.fp, 1));
+        drawFotos();
+      };
       const abrir = p => {
         edit = p; dt.textContent = p ? 'Editar producto' : 'Nuevo producto'; m.className = 'msg';
         fn.value = p?.nombre || ''; fg.value = p?.genero || 'M'; fc.value = p?.categoria || ''; fk.value = p?.color || ''; fm.value = p?.modo || 'ambos';
         fv.value = p?.precioVenta || 0; fa.value = p?.precioAlquilerDia || 0; ft.value = (p?.tallas || ['S', 'M', 'L']).join(','); fs.value = p?.stock ?? 1; fx.checked = p?.activo ?? true; fi.value = '';
+        imgs = [...(p?.imagenes || [])]; drawFotos();
         dlg.showModal();
       };
       nuevo.onclick = () => abrir(null); cx.onclick = () => dlg.close();
@@ -85,13 +117,8 @@ const Admin = {
       pf.onsubmit = async ev => {
         ev.preventDefault();
         if (!fn.value.trim() || !fc.value.trim()) { m.textContent = 'Nombre y categoría son obligatorios.'; m.className = 'msg on'; return; }
-        let img = '';
-        if (fi.files[0]) {
-          if (fi.files[0].size > 300 * 1024) { m.textContent = 'La imagen supera 300 KB.'; m.className = 'msg on'; return; }
-          img = await new Promise(r => { const fr = new FileReader(); fr.onload = () => r(fr.result); fr.readAsDataURL(fi.files[0]); });
-        }
         const d = { nombre: fn.value.trim(), genero: fg.value, categoria: fc.value.trim(), color: fk.value.trim(), modo: fm.value, precioVenta: +fv.value || 0, precioAlquilerDia: +fa.value || 0,
-          tallas: ft.value.split(',').map(x => x.trim().toUpperCase()).filter(Boolean), stock: +fs.value || 0, imagen: img, activo: fx.checked };
+          tallas: ft.value.split(',').map(x => x.trim().toUpperCase()).filter(Boolean), stock: +fs.value || 0, imagenes: imgs, activo: fx.checked };
         try {
           const saved = edit ? await API.put('/products/' + edit.id, d) : await API.post('/products', d);
           ps = edit ? ps.map(p => p.id === saved.id ? saved : p) : [...ps, saved];

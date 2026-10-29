@@ -27,6 +27,9 @@ CREATE TABLE IF NOT EXISTS login_fail(email TEXT PRIMARY KEY, n INTEGER NOT NULL
 CREATE INDEX IF NOT EXISTS ix_log_ts ON events_log(ts);
 CREATE INDEX IF NOT EXISTS ix_req_user ON requests(user_id);
 `);
+// Migración: varias fotos por producto (imagen = la principal, imagenes = lista completa).
+if (!db.prepare('PRAGMA table_info(products)').all().some(c => c.name === 'imagenes')) db.exec('ALTER TABLE products ADD COLUMN imagenes TEXT');
+const MAX_FOTOS = 6;
 
 // ---------- utilidades ----------
 const now = () => Date.now();
@@ -50,7 +53,7 @@ function limit(key, max, ms) {
 setInterval(() => { const t = now(); for (const [k, v] of buckets) if (!v.some(x => x > t - 36e5)) buckets.delete(k); db.prepare('DELETE FROM sessions WHERE expira<?').run(t); }, 600e3).unref();
 
 const pubUser = u => ({ id: u.id, nombre: u.nombre, email: u.email, rol: u.rol, creado: u.creado });
-const mapProd = p => ({ id: p.id, nombre: p.nombre, genero: p.genero, categoria: p.categoria, color: p.color, modo: p.modo, precioVenta: p.precio_venta, precioAlquilerDia: p.precio_alquiler, stock: p.stock, tallas: JSON.parse(p.tallas), imagen: p.imagen, activo: !!p.activo });
+const mapProd = p => ({ id: p.id, nombre: p.nombre, genero: p.genero, categoria: p.categoria, color: p.color, modo: p.modo, precioVenta: p.precio_venta, precioAlquilerDia: p.precio_alquiler, stock: p.stock, tallas: JSON.parse(p.tallas), imagen: p.imagen, imagenes: p.imagenes ? JSON.parse(p.imagenes) : [p.imagen], activo: !!p.activo });
 const mapReq = r => ({ id: r.id, tipo: r.tipo, userId: r.user_id, productoId: r.producto_id, productoNombre: r.producto_nombre ?? null, cliente: r.u_nombre ? { nombre: r.u_nombre, email: r.u_email } : undefined, talla: r.talla, desde: r.desde, hasta: r.hasta, datos: r.datos ? JSON.parse(r.datos) : null, total: r.total, estado: r.estado, creado: r.creado });
 
 function ph(emoji, c1, c2) {
@@ -107,15 +110,17 @@ const log = (tipo, pagina, ref, demo = 0) => db.prepare('INSERT INTO events_log(
 
 // ---------- validación de productos ----------
 function cleanProduct(b) {
-  const imagen = typeof b.imagen === 'string' ? b.imagen : '';
-  if (imagen && (!imagen.startsWith('data:image/') || imagen.length > 600000)) throw httpErr(400, 'Imagen inválida o demasiado grande');
+  let imagenes = Array.isArray(b.imagenes) ? b.imagenes : (typeof b.imagen === 'string' && b.imagen ? [b.imagen] : []);
+  if (imagenes.length > MAX_FOTOS) throw httpErr(400, `Máximo ${MAX_FOTOS} fotos por producto`);
+  for (const im of imagenes) if (typeof im !== 'string' || !im.startsWith('data:image/') || im.length > 600000) throw httpErr(400, 'Imagen inválida o demasiado grande');
+  if (!imagenes.length) imagenes = [ph('👗', '#999', '#ddd')];
   const tallas = Array.isArray(b.tallas) ? b.tallas.map(t => str(String(t), 1, 8, 'Talla')).slice(0, 12) : [];
   if (!tallas.length) throw httpErr(400, 'Indica al menos una talla');
   return {
     nombre: str(b.nombre, 1, 120, 'Nombre'), genero: oneOf(b.genero, ['M', 'H'], 'Género'), categoria: str(b.categoria, 1, 60, 'Categoría'),
     color: str(b.color ?? '', 0, 40, 'Color'), modo: oneOf(b.modo, ['venta', 'alquiler', 'ambos'], 'Modalidad'),
     precio_venta: int(b.precioVenta ?? 0, 0, 1e9, 'Precio de venta'), precio_alquiler: int(b.precioAlquilerDia ?? 0, 0, 1e9, 'Precio de alquiler'),
-    stock: int(b.stock ?? 0, 0, 10000, 'Stock'), tallas: JSON.stringify(tallas), imagen: imagen || ph('👗', '#999', '#ddd'), activo: b.activo === false ? 0 : 1
+    stock: int(b.stock ?? 0, 0, 10000, 'Stock'), tallas: JSON.stringify(tallas), imagen: imagenes[0], imagenes: JSON.stringify(imagenes), activo: b.activo === false ? 0 : 1
   };
 }
 
@@ -166,14 +171,14 @@ route('GET', '/api/products', null, ({ user, query }) => {
 });
 route('POST', '/api/products', 'admin', ({ body }) => {
   const d = cleanProduct(body), id = uid();
-  db.prepare('INSERT INTO products(id,nombre,genero,categoria,color,modo,precio_venta,precio_alquiler,stock,tallas,imagen,activo) VALUES(?,?,?,?,?,?,?,?,?,?,?,?)').run(id, d.nombre, d.genero, d.categoria, d.color, d.modo, d.precio_venta, d.precio_alquiler, d.stock, d.tallas, d.imagen, d.activo);
+  db.prepare('INSERT INTO products(id,nombre,genero,categoria,color,modo,precio_venta,precio_alquiler,stock,tallas,imagen,imagenes,activo) VALUES(?,?,?,?,?,?,?,?,?,?,?,?,?)').run(id, d.nombre, d.genero, d.categoria, d.color, d.modo, d.precio_venta, d.precio_alquiler, d.stock, d.tallas, d.imagen, d.imagenes, d.activo);
   return mapProd(db.prepare('SELECT * FROM products WHERE id=?').get(id));
 });
 route('PUT', '/api/products/:id', 'admin', ({ body, params }) => {
   const old = db.prepare('SELECT * FROM products WHERE id=?').get(params.id);
   if (!old) throw httpErr(404, 'Producto no encontrado');
-  const d = cleanProduct({ ...body, imagen: body.imagen || old.imagen });
-  db.prepare('UPDATE products SET nombre=?,genero=?,categoria=?,color=?,modo=?,precio_venta=?,precio_alquiler=?,stock=?,tallas=?,imagen=?,activo=? WHERE id=?').run(d.nombre, d.genero, d.categoria, d.color, d.modo, d.precio_venta, d.precio_alquiler, d.stock, d.tallas, d.imagen, d.activo, params.id);
+  const d = cleanProduct({ ...body, imagenes: Array.isArray(body.imagenes) ? body.imagenes : mapProd(old).imagenes });
+  db.prepare('UPDATE products SET nombre=?,genero=?,categoria=?,color=?,modo=?,precio_venta=?,precio_alquiler=?,stock=?,tallas=?,imagen=?,imagenes=?,activo=? WHERE id=?').run(d.nombre, d.genero, d.categoria, d.color, d.modo, d.precio_venta, d.precio_alquiler, d.stock, d.tallas, d.imagen, d.imagenes, d.activo, params.id);
   return mapProd(db.prepare('SELECT * FROM products WHERE id=?').get(params.id));
 });
 route('DELETE', '/api/products/:id', 'admin', ({ params }) => { db.prepare('DELETE FROM products WHERE id=?').run(params.id); return { ok: true }; });
@@ -269,7 +274,7 @@ async function handleApi(req, res, url) {
   const user = getUser(req);
   if (r.x.auth && !user) throw httpErr(401, 'Debes iniciar sesión');
   if (r.x.auth === 'admin' && user.rol !== 'admin') throw httpErr(403, 'Sin permiso');
-  const body = req.method === 'GET' ? {} : await readBody(req);
+  const body = req.method === 'GET' ? {} : await readBody(req, url.pathname.startsWith('/api/products') ? 4_500_000 : 1_000_000);
   const out = r.x.fn({ req, res, body, user, params: r.m.groups || {}, query: url.searchParams, ip: req.socket.remoteAddress });
   json(res, 200, out);
 }

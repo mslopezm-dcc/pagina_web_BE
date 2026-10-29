@@ -23,7 +23,9 @@ const Boutique = {
     if (!p) { det.innerHTML = '<p>Producto no encontrado.</p>'; return; }
     Metrics.log('vista_producto', p.id);
     const tipos = [p.modo !== 'alquiler' && ['compra', 'Comprar'], p.modo !== 'venta' && ['alquiler', 'Alquilar']].filter(Boolean);
-    det.innerHTML = `<div class="two"><img src="${UI.esc(p.imagen)}" alt="${UI.esc(p.nombre)}" style="border-radius:var(--r)">
+    const fotos = p.imagenes && p.imagenes.length ? p.imagenes : [p.imagen];
+    det.innerHTML = `<div class="two"><div><img id="foto" src="${UI.esc(fotos[0])}" alt="${UI.esc(p.nombre)}" style="border-radius:var(--r);width:100%">
+      ${fotos.length > 1 ? `<div class="gal" role="group" aria-label="Fotos de ${UI.esc(p.nombre)}">${fotos.map((s, i) => `<button type="button" data-i="${i}" aria-label="Ver foto ${i + 1}" aria-current="${i === 0}"><img src="${UI.esc(s)}" alt=""></button>`).join('')}</div>` : ''}</div>
       <div><h1>${UI.esc(p.nombre)}</h1><p><span class="tag">${p.genero === 'M' ? 'Mujer' : 'Hombre'}</span><span class="tag">${UI.esc(p.categoria)}</span><span class="tag">${UI.esc(p.color)}</span></p>
       <p class="price">${p.modo !== 'alquiler' ? 'Venta: ' + UI.cop(p.precioVenta) : ''}${p.modo === 'ambos' ? ' · ' : ''}${p.modo !== 'venta' ? 'Alquiler: ' + UI.cop(p.precioAlquilerDia) + '/día' : ''}</p>
       <form id="rf" class="form" novalidate>
@@ -34,6 +36,10 @@ const Boutique = {
         <button class="btn">Enviar solicitud</button>
         <a class="btn alt" id="wa" target="_blank" rel="noopener" href="https://wa.me/${CONFIG.whatsapp}?text=${encodeURIComponent('Hola, me interesa: ' + p.nombre)}">Consultar por WhatsApp</a>
       </form></div></div>`;
+    document.querySelectorAll('.gal button').forEach(b => b.onclick = () => {
+      foto.src = fotos[+b.dataset.i];
+      document.querySelectorAll('.gal button').forEach(x => x.setAttribute('aria-current', x === b));
+    });
     const hoy = new Date().toISOString().slice(0, 10); d1.min = d2.min = hoy;
     // El total mostrado es una estimación; el servidor lo recalcula al guardar la solicitud.
     const calc = () => {
